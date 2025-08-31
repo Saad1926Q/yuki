@@ -1,0 +1,3 @@
+Now, we’ll take the file we wrote in the last example and read it back in from disk. 
+Note that ifstream returns a 0 if we’ve reached the end of the file (EOF). 
+We’ll use this fact to determine how much to read.
