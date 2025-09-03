@@ -1,3 +1,15 @@
-Now, we’ll take the file we wrote in the last example and read it back in from disk. 
-Note that ifstream returns a 0 if we’ve reached the end of the file (EOF). 
-We’ll use this fact to determine how much to read.
+There's something ridiculously sweet
+about the way a kitten trips over its own feet,
+chasing a shadow it'll never catch 
+like a tiny, fluffy reminder
+that joy doesn't need a reason.
+
+It just happens.
+
+Like laughing too hard over a bad joke,
+or the way your favorite song
+feels like a warm hug on a rainy day.
+
+Sometimes, the world is soft
+in small, unexpected ways,
+and that's more than enough.
