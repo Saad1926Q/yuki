@@ -12,6 +12,19 @@ struct textRow{
 
 class AppendBuffer{
 	std::string buffer;
+
+	public:
+		std::string getBuffer(){
+			return buffer;
+		}
+
+		void append(const std::string& str){
+			buffer+=str;
+		}
+
+		void clear(){
+			buffer.clear();
+		}
 };
 
 
@@ -19,19 +32,41 @@ class EditorState{
 	int terminalRows;
 	int terminalCols;
 	int numRows;
+	int rowOffset;
+	int colOffset;
+	int cursorX;
+	int cursorY;
+
+
 	std::vector<textRow> row;
 	
 
 	public:
 		EditorState(){
 			numRows=0;
+			rowOffset=0;
+			colOffset=0;
+			cursorX=0;
+			cursorY=0;
 		}
 	
 		int getRows(){return terminalRows;}
 		int getCols(){return terminalCols;}
+		int getNumRows(){return numRows;}
+		int getRowOffset(){return rowOffset;}
+		int getColOffset(){return colOffset;}
+		int getcursorX(){return cursorX;}
+		int getcursorY(){return cursorY;}
+
+		std::vector<textRow> getTextRows(){return row;}
+
 
 		void setRows(int rows){terminalRows=rows;}
 		void setCols(int cols){terminalCols=cols;}
+		void setRowOffset(int val){rowOffset=val;}
+		void setColOffset(int val){colOffset=val;}
+		void setcursorX(int val){cursorX=val;}
+		void setcursorY(int val){cursorY=val;}
 
 
 		int getWindowSize(){
@@ -59,7 +94,9 @@ class EditorState{
 
 };
 
+AppendBuffer aBuf;
 EditorState E;
+
 
 
 void die(std::string errorMessage){
@@ -80,6 +117,11 @@ void editorProcessKeypress() {
 	int ch=getch();
 
 	int r,c;
+	int rowOffset=E.getRowOffset();
+	int colOffset=E.getColOffset();
+
+	int terminalRows=E.getRows();
+	int terminalCols=E.getCols();
 
 	getyx(stdscr,r,c);
 
@@ -87,20 +129,30 @@ void editorProcessKeypress() {
 		case KEY_UP:
 			if(r!=0)
 				r-=1;
+			else if(r==0 && rowOffset!=0)
+				E.setRowOffset(rowOffset-1);
 			break;
+
+
 		case KEY_DOWN:
 			if(r!=LINES-1)
 				r+=1;
+			else if(r==LINES-1 && rowOffset!=E.getNumRows()-1)
+				E.setRowOffset(rowOffset+1);
 			break;
 
 		case KEY_RIGHT:
 			if(c!=COLS-1)
 				c+=1;
+			else
+				E.setColOffset(colOffset+1);
 			break;
 		
 		case KEY_LEFT:
 			if(c!=0)
 				c-=1;
+			else if(c==0 and colOffset!=0)
+				E.setColOffset(colOffset-1);
 			break;
 
 		case KEY_F(1):
@@ -109,8 +161,17 @@ void editorProcessKeypress() {
 			break;
 	}
 
-	move(r,c);
+	E.setcursorY(r);
+	E.setcursorX(c);
+}
 
+
+void drawContent(){
+	int r=E.getcursorY();
+	int c=E.getcursorX();
+	printw("%s",aBuf.getBuffer().c_str());
+	move(r,c);
+	aBuf.clear();
 }
 
 void handleFile(char* argv[]){
@@ -124,17 +185,34 @@ void handleFile(char* argv[]){
     }
 
 	std::string currentLine{};
-	int curr_row=0;
+
+	int i=0;
 
 	while(std::getline(file,currentLine)){
-		mvprintw(curr_row,0,"%s",currentLine.c_str());
 		E.appendRow(currentLine);
-
-		curr_row++;
-
-		if(curr_row>=LINES-1)
-			break;
+		aBuf.append(currentLine);
+		aBuf.append("\n");
 	}
+
+	drawContent();
+}
+
+
+void refreshScreen(){
+	clear();
+	aBuf.clear();
+
+	std::vector<textRow> textRows=E.getTextRows();
+
+
+	for(std::size_t i=0;i<textRows.size();i++){
+		if(i>=E.getRowOffset()){
+			aBuf.append(textRows[i].text);
+			aBuf.append("\n");
+		}
+	}
+
+	drawContent();
 }
 
 
@@ -158,6 +236,7 @@ int main(int argc, char* argv[])
 
 	while(1){
 		editorProcessKeypress();
+		refreshScreen();
 	}
     
     return 0;
