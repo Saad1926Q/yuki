@@ -55,8 +55,8 @@ class EditorState{
 		int getNumRows(){return numRows;}
 		int getRowOffset(){return rowOffset;}
 		int getColOffset(){return colOffset;}
-		int getcursorX(){return cursorX;}
-		int getcursorY(){return cursorY;}
+		int getCursorX(){return cursorX;}
+		int getCursorY(){return cursorY;}
 
 		std::vector<textRow> getTextRows(){return row;}
 
@@ -65,8 +65,8 @@ class EditorState{
 		void setCols(int cols){terminalCols=cols;}
 		void setRowOffset(int val){rowOffset=val;}
 		void setColOffset(int val){colOffset=val;}
-		void setcursorX(int val){cursorX=val;}
-		void setcursorY(int val){cursorY=val;}
+		void setCursorX(int val){cursorX=val;}
+		void setCursorY(int val){cursorY=val;}
 
 
 		int getWindowSize(){
@@ -161,14 +161,14 @@ void editorProcessKeypress() {
 			break;
 	}
 
-	E.setcursorY(r);
-	E.setcursorX(c);
+	E.setCursorY(r);
+	E.setCursorX(c);
 }
 
 
 void drawContent(){
-	int r=E.getcursorY();
-	int c=E.getcursorX();
+	int r=E.getCursorY();
+	int c=E.getCursorX();
 	printw("%s",aBuf.getBuffer().c_str());
 	move(r,c);
 	aBuf.clear();
@@ -190,7 +190,10 @@ void handleFile(char* argv[]){
 
 	while(std::getline(file,currentLine)){
 		E.appendRow(currentLine);
-		aBuf.append(currentLine);
+		if(currentLine.size()<=COLS)
+			aBuf.append(currentLine);
+		else
+			aBuf.append(currentLine.substr(0,COLS-1));
 		aBuf.append("\n");
 	}
 
@@ -199,20 +202,33 @@ void handleFile(char* argv[]){
 
 
 void refreshScreen(){
+
+	curs_set(0);
+
 	clear();
 	aBuf.clear();
 
+	int colOffset=E.getColOffset();
 	std::vector<textRow> textRows=E.getTextRows();
 
 
 	for(std::size_t i=0;i<textRows.size();i++){
 		if(i>=E.getRowOffset()){
-			aBuf.append(textRows[i].text);
+			std::string rowContent=textRows[i].text;
+			if(colOffset<rowContent.size()){
+				std::string rowSubstr=rowContent.substr(colOffset);
+				if(rowSubstr.size()<=COLS)
+					aBuf.append(rowSubstr);
+				else
+					aBuf.append(rowSubstr.substr(0,COLS-1));
+			}
 			aBuf.append("\n");
 		}
 	}
 
 	drawContent();
+
+	curs_set(1);
 }
 
 
