@@ -37,6 +37,8 @@ class EditorState{
 	int cursorX;
 	int cursorY;
 
+	
+
 
 	std::vector<textRow> row;
 	
@@ -174,6 +176,29 @@ void drawContent(){
 	aBuf.clear();
 }
 
+void appendLineToBuffer(std::string& rowContent,int colOffset=0){
+	std::string bufferContent;
+
+	if(colOffset<rowContent.size()){
+		std::string rowSubstr=rowContent.substr(colOffset);
+		if(rowSubstr.size()>COLS)
+			rowSubstr=rowSubstr.substr(0,COLS-1);
+
+		for(char ch:rowSubstr){
+			if(ch=='\t'){
+				for(std::size_t i=0;i<TABSIZE;i++)
+					bufferContent+=" ";
+			}else{
+				bufferContent+=ch;
+			}
+		}
+	}
+
+	bufferContent+="\n";
+	aBuf.append(bufferContent);	
+}
+
+
 void handleFile(char* argv[]){
 	std::string filename{argv[1]};
 	
@@ -190,11 +215,7 @@ void handleFile(char* argv[]){
 
 	while(std::getline(file,currentLine)){
 		E.appendRow(currentLine);
-		if(currentLine.size()<=COLS)
-			aBuf.append(currentLine);
-		else
-			aBuf.append(currentLine.substr(0,COLS-1));
-		aBuf.append("\n");
+		appendLineToBuffer(currentLine);
 	}
 
 	drawContent();
@@ -215,18 +236,13 @@ void refreshScreen(){
 	for(std::size_t i=0;i<textRows.size();i++){
 		if(i>=E.getRowOffset()){
 			std::string rowContent=textRows[i].text;
-			if(colOffset<rowContent.size()){
-				std::string rowSubstr=rowContent.substr(colOffset);
-				if(rowSubstr.size()<=COLS)
-					aBuf.append(rowSubstr);
-				else
-					aBuf.append(rowSubstr.substr(0,COLS-1));
-			}
-			aBuf.append("\n");
+			appendLineToBuffer(rowContent,colOffset);
 		}
 	}
 
 	drawContent();
+
+	refresh();
 
 	curs_set(1);
 }
