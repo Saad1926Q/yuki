@@ -72,8 +72,9 @@ class EditorState{
 
 
 		int getWindowSize(){
+
 			int rows,cols;
-			getmaxyx(stdscr,cols,rows);
+			getmaxyx(stdscr,rows,cols);
 
 			if(rows==0||cols==0)
 				return -1;
@@ -109,7 +110,6 @@ void die(std::string errorMessage){
 
 
 void initEditor(){
-	
 	if(E.getWindowSize()==-1)
 		die("getWindowSize");
 }
@@ -223,10 +223,11 @@ void handleFile(char* argv[]){
 
 
 void refreshScreen(){
+	E.getWindowSize();
 
 	curs_set(0);
 
-	clear();
+	erase();
 	aBuf.clear();
 
 	int colOffset=E.getColOffset();
