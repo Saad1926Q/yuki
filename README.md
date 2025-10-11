@@ -3,6 +3,9 @@
 **yuki** is a simple terminal-based text editor written in C++.  
 The idea is to build a lightweight editor from scratch, focusing first on core editing features.
 
+![yuki logo](yuki_logo.png)
+
+
 ## Goals
 
 The initial goal is to implement:

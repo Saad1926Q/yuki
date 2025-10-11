@@ -38,6 +38,7 @@ class EditorState{
 	int cursorY;
 	int cursorFileY;  // This tells us which row in the file the cursor is on
 	int cursorFileX;  // This tells us which col in the file the cursor is on
+	std::string filename;
 
 	std::vector<textRow> textRows;
 
@@ -65,6 +66,8 @@ class EditorState{
 		std::vector<textRow> getTextRows(){return textRows;}
 		textRow &getTextRow(int idx){return textRows[idx];}
 
+		std::string getFileName(){return filename;}
+
 
 		void setRows(int rows){terminalRows=rows;}
 		void setCols(int cols){terminalCols=cols;}
@@ -74,6 +77,7 @@ class EditorState{
 		void setCursorY(int val){cursorY=val;}
 		void setCursorFileY(int val){cursorFileY=val;}
 		void setCursorFileX(int val){cursorFileX=val;}
+		void setFileName(std::string str){filename=str;}
 
 
 		int getWindowSize(){
@@ -185,6 +189,8 @@ void handleFile(char* argv[]){
 	
 	std::ifstream file{filename};
 
+	E.setFileName(filename);
+
     if(!file){
         std::cerr<<"file couldnt be read!!\n";
         std::exit(EXIT_FAILURE);
@@ -207,6 +213,22 @@ void handleFile(char* argv[]){
 	drawContent();
 }
 
+void updateFile(){
+	std::string filename=E.getFileName();
+
+	std::ofstream file(filename);
+
+	std::vector<textRow> textRows=E.getTextRows();
+
+	for(std::size_t i=0;i<textRows.size();i++){
+		file<<textRows[i].text;
+
+		if(i!=textRows.size()-1)
+			file<<"\n";
+	}
+
+	file.close();
+}
 
 void refreshScreen(){
 	E.getWindowSize();
@@ -232,10 +254,6 @@ void refreshScreen(){
 	refresh();
 
 	curs_set(1);
-}
-
-void editorRowInsertChar(){
-
 }
 
 
@@ -328,6 +346,7 @@ void editorProcessKeypress() {
 
 		case KEY_F(1):
 			endwin();
+			updateFile();
 			std::exit(0);
 			break;
 		
@@ -357,9 +376,16 @@ void editorProcessKeypress() {
 
 			break;
 
+		case ('s' & 0x1F): // This is CTRL+S
+			updateFile();
+			break;
+
 		default:
 			if(isprint(ch)){
 				// Text insertion logic
+
+				E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
+				E.setCursorFileX(E.getCursorFileX()+1);
 			}
 			break;
 	}
@@ -388,7 +414,9 @@ int main(int argc, char* argv[])
 	if(argc>=2){
 		handleFile(argv);
 	}else{
-		mvprintw(0,0,"Welcome to Yuki Editor --version 1.0");
+		std::cerr << "Error: No filename provided.\n";
+        std::cerr << "Run it as: " << argv[0] << " <filename>" << std::endl;
+        std::exit(EXIT_FAILURE);
 	}
 
 	refresh();
