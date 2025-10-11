@@ -12,8 +12,6 @@ If you're passionate about low-level programming and text editors, your contribu
 
 ## Codebase Overview
 
-Yuki follows a clear separation of concerns, primarily influenced by the Model-View-Controller (MVC) pattern, although simplified for a terminal application.
-
 ### `EditorState` Class
 
 `EditorState` is the single source of truth for all data related to the open file and the editor's current context.
@@ -43,7 +41,7 @@ This is primarily a helper class for efficient screen rendering.
 1.  **Input (`editorProcessKeypress()`):**
     * Reads a single keypress from the user.
     * Based on the key, it *only* updates the **logical cursor position** (`cursorFileY`, `cursorFileX`) and calls methods on `EditorState` to modify the file data (`textRows`).
-    * It *does not* directly change `r`, `c`, `rowOffset`, or `colOffset` here, keeping the focus purely on the model.
+    * It *does not* directly change `r`, `c`, `rowOffset`, or `colOffset` here.
 
     * After the logical cursor has potentially moved, this section checks if `cursorFileY` or `cursorFileX` are now outside the currently visible viewport (defined by `rowOffset`, `colOffset`, `terminalRows`, `terminalCols`).
     * If the cursor is off-screen, `rowOffset` or `colOffset` are adjusted to bring it back into view.
@@ -65,8 +63,7 @@ Contributions are welcome from individuals who genuinely want to learn and impro
 * **Code Style:**
     * Please stick to `camelCase` for variables and functions.
     * Use `PascalCase` for class names.
-    * Place opening curly braces `{` on a new line.
-* **Documentation:** Add comments for complex logic, new functions, or any non-obvious code. Explain the *why*, not just the *what*.
+* **Documentation:** Add comments for complex logic, new functions, or any non-obvious code.
 * **Testing:** Test your changes thoroughly.
 * **Pull Requests:** When submitting a pull request, provide a clear description of what you've changed and why.
 
