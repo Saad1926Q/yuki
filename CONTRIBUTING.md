@@ -12,6 +12,13 @@ If you're passionate about low-level programming and text editors, your contribu
 
 ## Codebase Overview
 
+The codebase is organized into a clean, multi-file structure.
+
+* `editor.hpp`: A header file containing the declarations for the core classes (`EditorState`, `AppendBuffer`) and data structures (`textRow`). This acts as the "table of contents" for the editor's data model.
+* `editor.cpp`: The source file containing the implementation (the definitions) of all the methods for the `EditorState` and `AppendBuffer` classes.
+* `main.cpp`: The main application file. It contains the entry point (`main()`) and all the global functions that handle input (`editorProcessKeypress`), output (`refreshScreen`), and file operations.
+
+
 ### `EditorState` Class
 
 `EditorState` is the single source of truth for all data related to the open file and the editor's current context.

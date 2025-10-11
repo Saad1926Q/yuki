@@ -1,151 +1,13 @@
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <ncurses.h>
-
-
-struct textRow{
-	int size;
-	std::string text;
-};
-
-class AppendBuffer{
-	std::string buffer;
-
-	public:
-		std::string getBuffer(){
-			return buffer;
-		}
-
-		void append(const std::string& str){
-			buffer+=str;
-		}
-
-		void clear(){
-			buffer.clear();
-		}
-};
-
-
-class EditorState{
-	int terminalRows;
-	int terminalCols;
-	int numRows;
-	int rowOffset;
-	int colOffset;
-	int cursorX;
-	int cursorY;
-	int cursorFileY;  // This tells us which row in the file the cursor is on
-	int cursorFileX;  // This tells us which col in the file the cursor is on
-	std::string filename;
-
-	std::vector<textRow> textRows;
-
-	public:
-		EditorState(){
-			numRows=0;
-			rowOffset=0;
-			colOffset=0;
-			cursorX=0;
-			cursorY=0;
-			cursorFileY=0;
-		}
-	
-		int getRows(){return terminalRows;}
-		int getCols(){return terminalCols;}
-		int getNumRows(){return numRows;}
-		int getRowOffset(){return rowOffset;}
-		int getColOffset(){return colOffset;}
-		int getCursorX(){return cursorX;}
-		int getCursorY(){return cursorY;}
-
-		int getCursorFileY(){return cursorFileY;}
-		int getCursorFileX(){return cursorFileX;}
-
-		std::vector<textRow> getTextRows(){return textRows;}
-		textRow &getTextRow(int idx){return textRows[idx];}
-
-		std::string getFileName(){return filename;}
-
-
-		void setRows(int rows){terminalRows=rows;}
-		void setCols(int cols){terminalCols=cols;}
-		void setRowOffset(int val){rowOffset=val;}
-		void setColOffset(int val){colOffset=val;}
-		void setCursorX(int val){cursorX=val;}
-		void setCursorY(int val){cursorY=val;}
-		void setCursorFileY(int val){cursorFileY=val;}
-		void setCursorFileX(int val){cursorFileX=val;}
-		void setFileName(std::string str){filename=str;}
-
-
-		int getWindowSize(){
-
-			int rows,cols;
-			getmaxyx(stdscr,rows,cols);
-
-			if(rows==0||cols==0)
-				return -1;
-
-			setRows(rows);
-			setCols(cols);
-
-			return 0;
-		}
-
-		void appendRow(std::string text){
-			textRow txtRow;
-			txtRow.text=text;
-			txtRow.size=text.size();
-
-			numRows+=1;
-			textRows.push_back(txtRow);
-		}
-
-		void insertRow(std::string text,int pos){
-			textRow newRow;
-				
-			newRow.text=text;
-			newRow.size=text.size();
-
-			textRows.insert(textRows.begin()+pos,newRow);  // Add new row
-			numRows++;
-
-		}
-
-		void removeRow(int pos){
-			textRows.erase(textRows.begin()+pos);
-			numRows--;
-		}
-
-		void editorInsertChar(char ch,int r,int c){
-			int numFileRows=getNumRows();
-
-			if(r>=0 && r<numFileRows){
-				textRow &row=textRows[r];
-
-				if(c>=0 && c<row.size){
-					row.text.insert(c,1,ch);
-				}else if(c==row.size){
-					row.text+=ch;
-				}
-
-				row.size++;
-
-			}
-
-		}
-		
-
-
-};
+#include "editor.hpp"
 
 AppendBuffer aBuf;
 EditorState E;
 
 
-void die(std::string errorMessage){
+void die(std::string errorMessage){  // For error handling
 	endwin();
 	std::cerr<<errorMessage<<std::endl;
 	std::exit(EXIT_FAILURE);
@@ -189,7 +51,7 @@ void appendLineToBuffer(std::string& rowContent,int colOffset=0){
 }
 
 
-void handleFile(char* argv[]){
+void handleFile(char* argv[]){  // Handle the file in the beginning when you run the text editor
 	std::string filename{argv[1]};
 	
 	std::ifstream file{filename};
@@ -218,7 +80,7 @@ void handleFile(char* argv[]){
 	drawContent();
 }
 
-void updateFile(){
+void updateFile(){  // Save the content in the file
 	std::string filename=E.getFileName();
 
 	std::ofstream file(filename);
@@ -235,7 +97,7 @@ void updateFile(){
 	file.close();
 }
 
-void refreshScreen(){
+void refreshScreen(){ //Every cycle update the Append buffer and redraws the content on the screen 
 	E.getWindowSize();
 
 	curs_set(0);
@@ -262,7 +124,7 @@ void refreshScreen(){
 }
 
 
-void editorProcessKeypress() {
+void editorProcessKeypress() {  // Main function which handles the different key press events
 	int ch=getch();
 
 	int rowOffset=E.getRowOffset();
