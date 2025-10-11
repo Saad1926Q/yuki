@@ -63,6 +63,7 @@ class EditorState{
 		int getCursorFileX(){return cursorFileX;}
 
 		std::vector<textRow> getTextRows(){return textRows;}
+		textRow &getTextRow(int idx){return textRows[idx];}
 
 
 		void setRows(int rows){terminalRows=rows;}
@@ -96,6 +97,17 @@ class EditorState{
 
 			numRows+=1;
 			textRows.push_back(txtRow);
+		}
+
+		void insertRow(std::string text,int pos){
+			textRow newRow;
+				
+			newRow.text=text;
+			newRow.size=text.size();
+
+			textRows.insert(textRows.begin()+pos,newRow);  // Add new row
+			numRows++;
+
 		}
 
 		void editorInsertChar(char ch,int r,int c){
@@ -187,6 +199,11 @@ void handleFile(char* argv[]){
 		appendLineToBuffer(currentLine);
 	}
 
+
+	if (E.getNumRows() == 0) 
+	    E.appendRow("");
+	
+
 	drawContent();
 }
 
@@ -225,26 +242,21 @@ void editorRowInsertChar(){
 void editorProcessKeypress() {
 	int ch=getch();
 
-	int r,c;
 	int rowOffset=E.getRowOffset();
 	int colOffset=E.getColOffset();
 
 	int terminalRows=E.getRows();
 	int terminalCols=E.getCols();
 
-	getyx(stdscr,r,c);
+	int r = E.getCursorY();
+	int c = E.getCursorX();
 
 	int currCursorFileY=E.getCursorFileY(); // Currently which line of the file is the cursor on.
 	int currCursorFileX=E.getCursorFileX(); // Currently which col of the file is the cursor on.
 
-	int currRowSize = 0; 
-	std::vector<textRow> textRows;
-
-	if(E.getNumRows()>0){
-		textRows=E.getTextRows();
-		textRow currTextRow=textRows[currCursorFileY];
-
-		currRowSize=currTextRow.size;
+	int currRowSize = 0;
+	if (E.getNumRows() > 0) {
+		currRowSize = E.getTextRow(currCursorFileY).size;
 	}
 
 	switch(ch){
@@ -257,10 +269,13 @@ void editorProcessKeypress() {
 				
 				E.setCursorFileY(currCursorFileY-1); // Move one line up
 
-				textRow newRow=textRows[currCursorFileY-1];
+				textRow& newRow = E.getTextRow(currCursorFileY-1);
 				if(currCursorFileX>newRow.size){
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-					c=E.getCursorFileX()-colOffset;
+					
+					if(newRow.size < colOffset){
+                		E.setColOffset(0);
+            		}
 				}
 			}
 			break;
@@ -274,10 +289,14 @@ void editorProcessKeypress() {
 
 				E.setCursorFileY(currCursorFileY+1); // Move one line down
 				
-				textRow newRow=textRows[currCursorFileY+1];
+				textRow& newRow = E.getTextRow(currCursorFileY+1);
 				if(currCursorFileX>newRow.size){
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-					c=E.getCursorFileX()-colOffset;
+					
+					if(newRow.size < colOffset){
+                		E.setColOffset(0);
+            		}
+
 				}
 			}
 			
@@ -311,9 +330,31 @@ void editorProcessKeypress() {
 			endwin();
 			std::exit(0);
 			break;
+		
+		case '\n': // Apparently ENTER key is represented by newline character and not by KEY_ENTER
+		case KEY_ENTER: // Keypad Enter
+			if(E.getNumRows()>0){
+				textRow& currRow=E.getTextRow(currCursorFileY);
+				std::string newLineText=currRow.text.substr(currCursorFileX);  // This is the text that will become the next line
 
-		case KEY_ENTER:
-			
+				currRow.text=currRow.text.substr(0,currCursorFileX);  // Shorten the original line
+				currRow.size = currRow.text.size(); // Update the size of the curr row
+
+				E.insertRow(newLineText,currCursorFileY+1);
+
+				E.setCursorFileX(0); // Move cursor to the beginning of the new line
+				E.setCursorFileY(currCursorFileY+1);
+
+				c=0;
+				E.setColOffset(0);
+
+				if(r==LINES-1)
+					E.setRowOffset(rowOffset+1);
+				else
+					r++;
+
+			}
+
 			break;
 
 		default:
@@ -322,6 +363,12 @@ void editorProcessKeypress() {
 			}
 			break;
 	}
+
+	rowOffset = E.getRowOffset();  // Get the offset which might have been updated
+	colOffset = E.getColOffset(); // Get the offset which might have been updated
+
+	r = E.getCursorFileY() - rowOffset;
+	c = E.getCursorFileX() - colOffset;
 
 	E.setCursorY(r);
 	E.setCursorX(c);
