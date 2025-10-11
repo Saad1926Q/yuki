@@ -271,9 +271,6 @@ void editorProcessKeypress() {
 	int terminalRows=E.getRows();
 	int terminalCols=E.getCols();
 
-	int r = E.getCursorY();
-	int c = E.getCursorX();
-
 	int currCursorFileY=E.getCursorFileY(); // Currently which line of the file is the cursor on.
 	int currCursorFileX=E.getCursorFileX(); // Currently which col of the file is the cursor on.
 
@@ -284,68 +281,51 @@ void editorProcessKeypress() {
 
 	switch(ch){
 		case KEY_UP:
-			if(currCursorFileY!=0){
-				if(r!=0)
-					r-=1;
-				else if(r==0 && rowOffset!=0)
-					E.setRowOffset(rowOffset-1);
-				
+			if(currCursorFileY!=0){				
 				E.setCursorFileY(currCursorFileY-1); // Move one line up
 
 				textRow& newRow = E.getTextRow(currCursorFileY-1);
-				if(currCursorFileX>newRow.size){
+				
+				if(currCursorFileX>newRow.size)
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-					
-					if(newRow.size < colOffset){
-                		E.setColOffset(0);
-            		}
-				}
+				
 			}
 			break;
 
 		case KEY_DOWN:
-			if(currCursorFileY!=E.getNumRows()-1){
-				if(r!=LINES-1)
-					r+=1;
-				else if(r==LINES-1 && rowOffset!=E.getNumRows()-1)
-					E.setRowOffset(rowOffset+1);
-
+			if(currCursorFileY<E.getNumRows()-1){
 				E.setCursorFileY(currCursorFileY+1); // Move one line down
 				
-				textRow& newRow = E.getTextRow(currCursorFileY+1);
-				if(currCursorFileX>newRow.size){
+				textRow& newRow = E.getTextRow(E.getCursorFileY());
+				
+				if(currCursorFileX>newRow.size)
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-					
-					if(newRow.size < colOffset){
-                		E.setColOffset(0);
-            		}
-
-				}
+				
 			}
 			
 			break;
 
 		case KEY_RIGHT:
-			if(currCursorFileX!=currRowSize){
-				if(c!=COLS-1)
-					c+=1;
-				else
-					E.setColOffset(colOffset+1);
-
+			if(currCursorFileX!=currRowSize)
 				E.setCursorFileX(currCursorFileX+1);
-			}
+			
 			
 			break;
 		
 		case KEY_LEFT:
-			if(currCursorFileX!=0){
-				if(c!=0)
-					c-=1;
-				else if(c==0 and colOffset!=0)
-					E.setColOffset(colOffset-1);
-				
+			if(currCursorFileX!=0)
 				E.setCursorFileX(currCursorFileX-1);
-			}
+			
+
+			break;
+
+		case KEY_HOME:
+			E.setCursorFileX(0);
+			
+			break;
+		
+		case KEY_END:
+			E.setCursorFileX(currRowSize);
 
 			break;
 
@@ -368,14 +348,6 @@ void editorProcessKeypress() {
 
 				E.setCursorFileX(0); // Move cursor to the beginning of the new line
 				E.setCursorFileY(currCursorFileY+1);
-
-				c=0;
-				E.setColOffset(0);
-
-				if(r==LINES-1)
-					E.setRowOffset(rowOffset+1);
-				else
-					r++;
 
 			}
 
@@ -417,15 +389,37 @@ void editorProcessKeypress() {
 			if(isprint(ch)){ 	// Text insertion 
 				E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
 				E.setCursorFileX(E.getCursorFileX()+1);
+
 			}
 			break;
 	}
 
+	currCursorFileY = E.getCursorFileY();
+    currCursorFileX = E.getCursorFileX();
+
+	if(currCursorFileY<E.getRowOffset()){
+		E.setRowOffset(currCursorFileY);
+	}
+	
+	if(currCursorFileY>=E.getRowOffset()+terminalRows){
+		E.setRowOffset(currCursorFileY-terminalRows+1);
+	}
+
+	if(currCursorFileX < E.getColOffset()){
+		E.setColOffset(currCursorFileX);
+	}
+	
+	if(currCursorFileX>=E.getColOffset()+terminalCols){
+		E.setColOffset(currCursorFileX-terminalCols+1);
+	}
+
+
+
 	rowOffset = E.getRowOffset();  // Get the offset which might have been updated
 	colOffset = E.getColOffset(); // Get the offset which might have been updated
 
-	r = E.getCursorFileY() - rowOffset;
-	c = E.getCursorFileX() - colOffset;
+	int r = E.getCursorFileY() - rowOffset;
+	int c = E.getCursorFileX() - colOffset;
 
 	E.setCursorY(r);
 	E.setCursorX(c);
@@ -445,9 +439,7 @@ int main(int argc, char* argv[])
 	if(argc>=2){
 		handleFile(argv);
 	}else{
-		std::cerr << "Error: No filename provided.\n";
-        std::cerr << "Run it as: " << argv[0] << " <filename>" << std::endl;
-        std::exit(EXIT_FAILURE);
+		die("Error: No filename provided.\n");
 	}
 
 	refresh();
