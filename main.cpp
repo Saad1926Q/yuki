@@ -114,6 +114,11 @@ class EditorState{
 
 		}
 
+		void removeRow(int pos){
+			textRows.erase(textRows.begin()+pos);
+			numRows--;
+		}
+
 		void editorInsertChar(char ch,int r,int c){
 			int numFileRows=getNumRows();
 
@@ -376,14 +381,40 @@ void editorProcessKeypress() {
 
 			break;
 
+		case KEY_BACKSPACE:
+			if(E.getNumRows()>0){
+				textRow& currRow=E.getTextRow(currCursorFileY);
+
+				if(currRow.size>0 && currCursorFileX>0){
+					currRow.text.erase(currCursorFileX-1,1);  // Delete one character before the cursor
+					currRow.size = currRow.text.size();
+
+					E.setCursorFileX(currCursorFileX-1);
+				}else if(currCursorFileX==0 && currCursorFileY>0){ // pressing backspace at the beginning of a line
+					std::string currLineText=currRow.text;
+					
+					textRow& prevRow=E.getTextRow(currCursorFileY-1);
+					
+					int newCursorFileX=prevRow.size;
+
+					prevRow.text+=currLineText;
+					prevRow.size=prevRow.text.size();
+
+					E.removeRow(currCursorFileY);
+
+					E.setCursorFileX(newCursorFileX);
+					E.setCursorFileY(currCursorFileY-1);
+				}
+
+			}
+			break;
+
 		case ('s' & 0x1F): // This is CTRL+S
 			updateFile();
 			break;
 
 		default:
-			if(isprint(ch)){
-				// Text insertion logic
-
+			if(isprint(ch)){ 	// Text insertion 
 				E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
 				E.setCursorFileX(E.getCursorFileX()+1);
 			}
