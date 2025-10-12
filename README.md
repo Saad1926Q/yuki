@@ -53,8 +53,9 @@ I'm just building this out of pure curiosity - doing it for the love of the game
 
 ## TODOs
 
-* Add a status bar showing filename, cursor row/column, and save status.
-* Implement modes (similar to Vim).
-* Add Vim Motions.
-* Add support for handling complex characters and encoding beyond basic ASCII.
-* Add a "dirty" flag to prompt user to save before quitting(currently it always auto-saves on quit)
+- [ ]  Add a status bar showing filename, cursor row/column, and save status.
+- [ ]  Implement modes (similar to Vim).
+- [ ]  Add Vim Motions.
+- [ ]  Add support for custom key bindings
+- [ ]  Add support for handling complex characters and encoding beyond basic ASCII.
+- [ ]  Add a "dirty" flag to prompt user to save before quitting(currently it always auto-saves on quit)
