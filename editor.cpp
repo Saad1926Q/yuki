@@ -20,8 +20,16 @@ EditorState::EditorState() {
     cursorX = 0;
     cursorY = 0;
     cursorFileY = 0;
+    dirty = false;
 }
 
+// the implementation of the isDirty function
+bool EditorState::isDirty() const {
+    return dirty;
+}
+void EditorState::markAsDirty() {
+    dirty = true;
+}
 
 int EditorState::getRows() { return terminalRows; }
 int EditorState::getCols() { return terminalCols; }
@@ -56,12 +64,16 @@ int EditorState::getWindowSize() {
     return 0;
 }
 
+
+// set dirty => true in all functions that change text
+
 void EditorState::appendRow(std::string text) {
     textRow txtRow;
     txtRow.text = text;
     txtRow.size = text.size();
     numRows += 1;
     textRows.push_back(txtRow);
+    dirty = true; 
 }
 
 void EditorState::insertRow(std::string text, int pos) {
@@ -70,11 +82,13 @@ void EditorState::insertRow(std::string text, int pos) {
     newRow.size = text.size();
     textRows.insert(textRows.begin() + pos, newRow);
     numRows++;
+    dirty = true; 
 }
 
 void EditorState::removeRow(int pos) {
     textRows.erase(textRows.begin() + pos);
     numRows--;
+    dirty = true; 
 }
 
 void EditorState::editorInsertChar(char ch, int r, int c) {
@@ -87,5 +101,15 @@ void EditorState::editorInsertChar(char ch, int r, int c) {
             row.text += ch;
         }
         row.size++;
+        dirty = true; 
     }
+}
+
+// the implementations for the reset functions
+void EditorState::onFileLoad() {
+    dirty = false;
+}
+
+void EditorState::onFileSave() {
+    dirty = false;
 }

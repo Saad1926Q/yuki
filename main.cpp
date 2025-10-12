@@ -29,49 +29,45 @@ void drawContent(){
 }
 
 void appendLineToBuffer(std::string& rowContent,int colOffset=0){
-	std::string bufferContent;
+    std::string bufferContent;
 
-	if(colOffset<rowContent.size()){
-		std::string rowSubstr=rowContent.substr(colOffset);
-		if(rowSubstr.size()>COLS)
-			rowSubstr=rowSubstr.substr(0,COLS-1);
+    if (colOffset < static_cast<int>(rowContent.size())) {
+        std::string rowSubstr = rowContent.substr(colOffset);
+        if (static_cast<int>(rowSubstr.size()) > COLS)
+            rowSubstr = rowSubstr.substr(0, COLS);
 
-		for(char ch:rowSubstr){
-			if(ch=='\t'){
-				for(std::size_t i=0;i<TABSIZE;i++)
+        for (char ch : rowSubstr) {
+            if (ch == '\t') {
+                for (int i = 0; i < TABSIZE; ++i)
 					bufferContent+=" ";
-			}else{
+            } else  {
 				bufferContent+=ch;
 			}
-		}
-	}
+        }
+    }
 
 	bufferContent+="\n";
 	aBuf.append(bufferContent);	
 }
 
-
 void handleFile(char* argv[]){  // Handle the file in the beginning when you run the text editor
-	std::string filename{argv[1]};
-	
-	std::ifstream file{filename};
+    std::string filename{argv[1]};
+    
+    std::ifstream file{filename};
 
-	E.setFileName(filename);
+    E.setFileName(filename);
 
     if(!file){
         std::cerr<<"file couldnt be read!!\n";
         std::exit(EXIT_FAILURE);
     }
 
-	std::string currentLine{};
+    std::string currentLine{};
 
-	int i=0;
-
-	while(std::getline(file,currentLine)){
-		E.appendRow(currentLine);
-		appendLineToBuffer(currentLine);
-	}
-
+    while(std::getline(file,currentLine)){
+        E.appendRow(currentLine);
+        appendLineToBuffer(currentLine);
+    }
 
 	if (E.getNumRows() == 0) 
 	    E.appendRow("");
@@ -95,32 +91,35 @@ void updateFile(){  // Save the content in the file
 	}
 
 	file.close();
+	E.onFileSave(); // to reset the dirty flag after saving the file
 }
 
 void refreshScreen(){ //Every cycle update the Append buffer and redraws the content on the screen 
-	E.getWindowSize();
+    E.getWindowSize();
+    curs_set(0);
 
-	curs_set(0);
+    erase();
+    aBuf.clear();
 
-	erase();
-	aBuf.clear();
+    int colOffset=E.getColOffset();
+    std::vector<textRow> textRows=E.getTextRows();
 
-	int colOffset=E.getColOffset();
-	std::vector<textRow> textRows=E.getTextRows();
+    int rowOffset = E.getRowOffset();
+    int terminalRows = E.getRows();
+    int maxVisible = std::max(0, terminalRows - 1); // only render visible rows (reserve the last row for status)
+    int printed_cnt = 0;
 
+    for(std::size_t i = rowOffset; i < textRows.size() && printed_cnt < maxVisible; ++i){
+        std::string rowContent=textRows[i].text;
+        appendLineToBuffer(rowContent,colOffset);
+        printed_cnt++;
+    }
 
-	for(std::size_t i=0;i<textRows.size();i++){
-		if(i>=E.getRowOffset()){
-			std::string rowContent=textRows[i].text;
-			appendLineToBuffer(rowContent,colOffset);
-		}
-	}
+    drawContent();
 
-	drawContent();
+    refresh();
 
-	refresh();
-
-	curs_set(1);
+    curs_set(1);
 }
 
 
@@ -223,7 +222,8 @@ void editorProcessKeypress() {  // Main function which handles the different key
 					currRow.text.erase(currCursorFileX-1,1);  // Delete one character before the cursor
 					currRow.size = currRow.text.size();
 
-					E.setCursorFileX(currCursorFileX-1);
+					E.markAsDirty(); // manually mark as dirty since the text was modified outside of an EditorState method
+					E.setCursorFileX(currCursorFileX - 1);
 				}else if(currCursorFileX==0 && currCursorFileY>0){ // pressing backspace at the beginning of a line
 					std::string currLineText=currRow.text;
 					
