@@ -30,6 +30,8 @@ class EditorState {
     std::string filename;
     std::vector<textRow> textRows;
 
+    bool dirty;
+
 public:
     EditorState();
     int getRows();
@@ -44,6 +46,9 @@ public:
     std::vector<textRow> getTextRows();
     textRow& getTextRow(int idx);
     std::string getFileName();
+
+    // public getter for dirty flag
+    bool isDirty() const;
 
     void setRows(int rows);
     void setCols(int cols);
@@ -60,6 +65,11 @@ public:
     void insertRow(std::string text, int pos);
     void removeRow(int pos);
     void editorInsertChar(char ch, int r, int c);
+
+    // add this functions to Manages the dirty flag state
+    void markAsDirty();// to set the dirty flag to true
+    void onFileLoad();// resets the dirty flag when a file is loaded
+    void onFileSave();// resets the dirty flag after a file is saveed
 };
 
 #endif 
