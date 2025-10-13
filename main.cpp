@@ -72,7 +72,8 @@ void handleFile(char* argv[]){  // Handle the file in the beginning when you run
 	if (E.getNumRows() == 0) 
 	    E.appendRow("");
 	
-
+	E.onFileLoad();
+	
 	drawContent();
 }
 
