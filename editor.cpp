@@ -21,6 +21,8 @@ EditorState::EditorState() {
     cursorY = 0;
     cursorFileY = 0;
     dirty = false;
+    // set the mode to Normal by default
+    currentMode = EditorMode::Normal;
 }
 
 // the implementation of the isDirty function
@@ -43,6 +45,10 @@ int EditorState::getCursorFileX() { return cursorFileX; }
 std::vector<textRow> EditorState::getTextRows() { return textRows; }
 textRow& EditorState::getTextRow(int idx) { return textRows[idx]; }
 std::string EditorState::getFileName() { return filename; }
+//Implement the getter for the mode
+EditorMode EditorState::getMode() const {
+    return currentMode;
+}
 
 void EditorState::setRows(int rows) { terminalRows = rows; }
 void EditorState::setCols(int cols) { terminalCols = cols; }
@@ -53,6 +59,10 @@ void EditorState::setCursorY(int val) { cursorY = val; }
 void EditorState::setCursorFileY(int val) { cursorFileY = val; }
 void EditorState::setCursorFileX(int val) { cursorFileX = val; }
 void EditorState::setFileName(std::string str) { filename = str; }
+//Implement the setter for the mode
+void EditorState::setMode(EditorMode mode) {
+    currentMode = mode;
+}
 
 int EditorState::getWindowSize() {
     int rows, cols;
