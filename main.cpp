@@ -180,6 +180,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 		currRowSize = E.getTextRow(currCursorFileY).size;
 	}
 
+    EditorMode mode = E.getMode();
 	switch(ch){
 		case KEY_UP:
 			if(currCursorFileY!=0){				
@@ -252,7 +253,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 					E.setCursorFileY(currCursorFileY+1);
 
 				}
-			}|
+			}
 			break;
 
 		case KEY_BACKSPACE:
