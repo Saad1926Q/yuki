@@ -95,7 +95,7 @@ void updateFile(){  // Save the content in the file
 	E.onFileSave(); // to reset the dirty flag after saving the file
 }
 
-vvoid refreshScreen() {
+void refreshScreen() {
     E.getWindowSize();
 
     curs_set(0);
