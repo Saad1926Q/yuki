@@ -141,11 +141,23 @@ void refreshScreen() {
 
     attroff(A_REVERSE); 
 
-    if (mode == EditorMode::Normal) 
-		curs_set(0);
-	else 
-		curs_set(1);
-    
+    static EditorMode lastMode = EditorMode::Normal;
+
+    if (mode != lastMode) {
+        switch (mode) {
+            case EditorMode::Normal: // change cursor to a steady block
+                printf("\x1b[2 q");
+                break;
+            case EditorMode::Insert: // change cursor to a blinking bar
+                printf("\x1b[5 q");
+                break;
+        }
+        fflush(stdout); // apply the cursor change
+        lastMode = mode;
+    }
+
+    curs_set(1);
+
     move(E.getCursorY(), E.getCursorX());
 
     refresh();
