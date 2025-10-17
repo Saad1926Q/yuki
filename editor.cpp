@@ -50,6 +50,11 @@ EditorMode EditorState::getMode() const {
     return currentMode;
 }
 
+int EditorState::getTextWindowHeight(){
+    // The text window is the total height minus the status bar
+    return terminalRows - 1;
+}
+
 void EditorState::setRows(int rows) { terminalRows = rows; }
 void EditorState::setCols(int cols) { terminalCols = cols; }
 void EditorState::setRowOffset(int val) { rowOffset = val; }

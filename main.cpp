@@ -319,8 +319,10 @@ void editorProcessKeypress() {  // Main function which handles the different key
 		E.setRowOffset(currCursorFileY);
 	}
 	
-	if(currCursorFileY>=E.getRowOffset()+terminalRows){
-		E.setRowOffset(currCursorFileY-terminalRows+1);
+	int textWindowHeight = E.getTextWindowHeight();
+
+	if(currCursorFileY>=E.getRowOffset()+textWindowHeight){
+		E.setRowOffset(currCursorFileY-textWindowHeight+1);
 	}
 
 	if(currCursorFileX < E.getColOffset()){
@@ -339,6 +341,10 @@ void editorProcessKeypress() {  // Main function which handles the different key
 	int r = E.getCursorFileY() - rowOffset;
 	int c = E.getCursorFileX() - colOffset;
 
+	if (r >= E.getTextWindowHeight()) {
+    	r = E.getTextWindowHeight() - 1;
+	}
+
 	E.setCursorY(r);
 	E.setCursorX(c);
 }
@@ -353,6 +359,9 @@ int main(int argc, char* argv[])
 	clear(); 
 
 	initEditor();
+
+	printf("\x1b[2 q"); // Set initial cursor shape to block for Normal mode
+    fflush(stdout);
 
 	if(argc>=2){
 		handleFile(argv);
