@@ -95,10 +95,11 @@ void updateFile(){  // Save the content in the file
 	E.onFileSave(); // to reset the dirty flag after saving the file
 }
 
-void refreshScreen(){ //Every cycle update the Append buffer and redraws the content on the screen 
+void refreshScreen() {
     E.getWindowSize();
-    curs_set(0);
 
+    curs_set(0);
+    
     erase();
     aBuf.clear();
 
@@ -118,14 +119,64 @@ void refreshScreen(){ //Every cycle update the Append buffer and redraws the con
 
     drawContent();
 
-    refresh();
+    attron(A_REVERSE); 
+
+    EditorMode mode = E.getMode();
+    std::string modeString = (mode == EditorMode::Normal) ? "=== NORMAL ===" : "=== INSERT ===";
+    std::string name = E.getFileName().substr(0, 20); 
+    std::string dirtystr = E.isDirty() ? " [Modified , don't forget to save]" : "";
+    
+    std::string leftStatu = modeString + " | " + name + dirtystr;
+    
+    std::string rightStatu = std::to_string(E.getCursorFileY() + 1) + "/" + std::to_string(E.getNumRows());
+
+    int terminalCols = E.getCols();
+    int row_cnt = terminalRows - 1;
+    mvprintw(row_cnt, 0, "%s", leftStatu.c_str());
+    
+    int rightPadding = terminalCols - leftStatu.length() - rightStatu.length();
+    if (rightPadding > 0) {
+        mvprintw(row_cnt, terminalCols - rightStatu.length(), "%s", rightStatu.c_str());
+    }
+
+    attroff(A_REVERSE); 
+
+    static EditorMode lastMode = EditorMode::Normal;
+
+    if (mode != lastMode) {
+        switch (mode) {
+            case EditorMode::Normal: // change cursor to a steady block
+                printf("\x1b[2 q");
+                break;
+            case EditorMode::Insert: // change cursor to a blinking bar
+                printf("\x1b[5 q");
+                break;
+        }
+        fflush(stdout); // apply the cursor change
+        lastMode = mode;
+    }
 
     curs_set(1);
+
+    move(E.getCursorY(), E.getCursorX());
+
+    refresh();
 }
 
 
 void editorProcessKeypress() {  // Main function which handles the different key press events
 	int ch=getch();
+
+
+	// Handle Mode Switching First
+    if (E.getMode() == EditorMode::Normal && ch == 'i') {
+        E.setMode(EditorMode::Insert);
+        return; // move to Insert mode and wait for next input
+    }
+    if (E.getMode() == EditorMode::Insert && ch == 27) { 
+        E.setMode(EditorMode::Normal);
+        return; // move to normal mode and wait for next input
+    }
 
 	int rowOffset=E.getRowOffset();
 	int colOffset=E.getColOffset();
@@ -141,6 +192,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 		currRowSize = E.getTextRow(currCursorFileY).size;
 	}
 
+    EditorMode mode = E.getMode();
 	switch(ch){
 		case KEY_UP:
 			if(currCursorFileY!=0){				
@@ -196,51 +248,54 @@ void editorProcessKeypress() {  // Main function which handles the different key
 			updateFile();
 			std::exit(0);
 			break;
-		
+
 		case '\n': // Apparently ENTER key is represented by newline character and not by KEY_ENTER
 		case KEY_ENTER: // Keypad Enter
-			if(E.getNumRows()>0){
-				textRow& currRow=E.getTextRow(currCursorFileY);
-				std::string newLineText=currRow.text.substr(currCursorFileX);  // This is the text that will become the next line
+			if (mode == EditorMode::Insert) {
+				if(E.getNumRows()>0){
+					textRow& currRow=E.getTextRow(currCursorFileY);
+					std::string newLineText=currRow.text.substr(currCursorFileX);  // This is the text that will become the next line
 
-				currRow.text=currRow.text.substr(0,currCursorFileX);  // Shorten the original line
-				currRow.size = currRow.text.size(); // Update the size of the curr row
+					currRow.text=currRow.text.substr(0,currCursorFileX);  // Shorten the original line
+					currRow.size = currRow.text.size(); // Update the size of the curr row
 
-				E.insertRow(newLineText,currCursorFileY+1);
+					E.insertRow(newLineText,currCursorFileY+1);
 
-				E.setCursorFileX(0); // Move cursor to the beginning of the new line
-				E.setCursorFileY(currCursorFileY+1);
+					E.setCursorFileX(0); // Move cursor to the beginning of the new line
+					E.setCursorFileY(currCursorFileY+1);
 
+				}
 			}
-
 			break;
 
 		case KEY_BACKSPACE:
-			if(E.getNumRows()>0){
-				textRow& currRow=E.getTextRow(currCursorFileY);
+			if (mode == EditorMode::Insert) {
+				if(E.getNumRows()>0){
+					textRow& currRow=E.getTextRow(currCursorFileY);
 
-				if(currRow.size>0 && currCursorFileX>0){
-					currRow.text.erase(currCursorFileX-1,1);  // Delete one character before the cursor
-					currRow.size = currRow.text.size();
+					if(currRow.size>0 && currCursorFileX>0){
+						currRow.text.erase(currCursorFileX-1,1);  // Delete one character before the cursor
+						currRow.size = currRow.text.size();
 
-					E.markAsDirty(); // manually mark as dirty since the text was modified outside of an EditorState method
-					E.setCursorFileX(currCursorFileX - 1);
-				}else if(currCursorFileX==0 && currCursorFileY>0){ // pressing backspace at the beginning of a line
-					std::string currLineText=currRow.text;
-					
-					textRow& prevRow=E.getTextRow(currCursorFileY-1);
-					
-					int newCursorFileX=prevRow.size;
+						E.markAsDirty(); // manually mark as dirty since the text was modified outside of an EditorState method
+						E.setCursorFileX(currCursorFileX - 1);
+					}else if(currCursorFileX==0 && currCursorFileY>0){ // pressing backspace at the beginning of a line
+						std::string currLineText=currRow.text;
+						
+						textRow& prevRow=E.getTextRow(currCursorFileY-1);
+						
+						int newCursorFileX=prevRow.size;
 
-					prevRow.text+=currLineText;
-					prevRow.size=prevRow.text.size();
+						prevRow.text+=currLineText;
+						prevRow.size=prevRow.text.size();
 
-					E.removeRow(currCursorFileY);
+						E.removeRow(currCursorFileY);
 
-					E.setCursorFileX(newCursorFileX);
-					E.setCursorFileY(currCursorFileY-1);
+						E.setCursorFileX(newCursorFileX);
+						E.setCursorFileY(currCursorFileY-1);
+					}
+
 				}
-
 			}
 			break;
 
@@ -249,7 +304,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 			break;
 
 		default:
-			if(isprint(ch)){ 	// Text insertion 
+			if(isprint(ch) && mode == EditorMode::Insert){ 	// Text insertion 
 				E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
 				E.setCursorFileX(E.getCursorFileX()+1);
 

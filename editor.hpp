@@ -4,6 +4,12 @@
 #include <string>
 #include <vector>
 
+// define the editor modes here
+enum class EditorMode {
+    Normal,
+    Insert
+};
+
 struct textRow {
     int size;
     std::string text;
@@ -31,6 +37,8 @@ class EditorState {
     std::vector<textRow> textRows;
 
     bool dirty;
+    // the current mode is now part of the editor's state
+    EditorMode currentMode;
 
 public:
     EditorState();
@@ -46,6 +54,7 @@ public:
     std::vector<textRow> getTextRows();
     textRow& getTextRow(int idx);
     std::string getFileName();
+ EditorMode getMode() const; // get cur mode
 
     // public getter for dirty flag
     bool isDirty() const;
@@ -59,6 +68,7 @@ public:
     void setCursorFileY(int val);
     void setCursorFileX(int val);
     void setFileName(std::string str);
+    void setMode(EditorMode mode); // set cur mode
 
     int getWindowSize();
     void appendRow(std::string text);
