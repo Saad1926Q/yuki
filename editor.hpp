@@ -51,6 +51,7 @@ public:
     int getCursorY();
     int getCursorFileY();
     int getCursorFileX();
+    int getTextWindowHeight();   // This is after considering that the last row is reserved for status bar
     std::vector<textRow> getTextRows();
     textRow& getTextRow(int idx);
     std::string getFileName();
