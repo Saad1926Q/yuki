@@ -192,6 +192,23 @@ void editorProcessKeypress() {  // Main function which handles the different key
 		currRowSize = E.getTextRow(currCursorFileY).size;
 	}
 
+	if (E.getMode() == EditorMode::Normal) {
+        switch (ch) {
+            case 'k': 
+				ch = KEY_UP;    
+				break;
+            case 'j': 
+				ch = KEY_DOWN;  
+				break;
+            case 'h': 
+				ch = KEY_LEFT; 
+				break;
+            case 'l': 
+				ch = KEY_RIGHT; 
+				break;
+        }
+    }
+
     EditorMode mode = E.getMode();
 	switch(ch){
 		case KEY_UP:
