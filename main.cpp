@@ -126,19 +126,23 @@ void refreshScreen() {
     std::string name = E.getFileName().substr(0, 20); 
     std::string dirtystr = E.isDirty() ? " [Modified , don't forget to save]" : "";
     
-    std::string leftStatu = modeString + " | " + name + dirtystr;
+    std::string leftStatus = modeString + " | " + name + dirtystr;
     
-    std::string rightStatu = std::to_string(E.getCursorFileY() + 1) + "/" + std::to_string(E.getNumRows());
+    std::string rightStatus = std::to_string(E.getCursorFileY() + 1) + "/" + std::to_string(E.getNumRows());
 
     int terminalCols = E.getCols();
     int row_cnt = terminalRows - 1;
-    mvprintw(row_cnt, 0, "%s", leftStatu.c_str());
-    
-    int rightPadding = terminalCols - leftStatu.length() - rightStatu.length();
-    if (rightPadding > 0) {
-        mvprintw(row_cnt, terminalCols - rightStatu.length(), "%s", rightStatu.c_str());
-    }
 
+	if (leftStatus.length() > terminalCols) {
+    leftStatus.resize(terminalCols);
+	}
+
+    mvprintw(row_cnt, 0, "%s", leftStatus.c_str());
+
+	if (leftStatus.length() + rightStatus.length() < terminalCols) {
+    	mvprintw(row_cnt, terminalCols - rightStatus.length(), "%s", rightStatus.c_str());
+	}
+	
     attroff(A_REVERSE); 
 
     static EditorMode lastMode = EditorMode::Normal;
