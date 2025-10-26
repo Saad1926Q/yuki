@@ -212,7 +212,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 				break;
 			case 'G':
 				E.setCursorFileY(E.getNumRows()-1);
-				E.setCursorFileX(E.getTextRow(E.getNumRows()-1).size);
+				E.setCursorFileX(0);
 				break;
 			case 'g':
 				timeout(300);
