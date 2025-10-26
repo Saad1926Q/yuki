@@ -210,6 +210,23 @@ void editorProcessKeypress() {  // Main function which handles the different key
             case 'l': 
 				ch = KEY_RIGHT; 
 				break;
+			case 'G':
+				E.setCursorFileY(E.getNumRows()-1);
+				E.setCursorFileX(0);
+				break;
+			case 'g':
+				timeout(300);
+				int doubleClick = getch();
+				timeout(-1);
+
+				if (doubleClick == 'g') 
+				{
+					E.setCursorFileY(0);
+					E.setCursorFileX(0);
+				} else if (doubleClick != ERR) {
+					ungetch(doubleClick); 
+				}
+				break;
         }
     }
 
