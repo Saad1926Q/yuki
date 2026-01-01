@@ -7,12 +7,28 @@
 // define the editor modes here
 enum class EditorMode {
     Normal,
-    Insert
+    Insert,
+    Search
 };
 
-struct textRow {
+struct TextRow {
     int size;
     std::string text;
+};
+
+struct StatusBar {
+      std::string leftText;
+      std::string rightText;
+      int r;
+      int c;
+};
+
+struct SearchHistory{
+    std::string pattern;
+    bool found;
+    bool forward;
+    int fileX;
+    int fileY;
 };
 
 class AppendBuffer {
@@ -34,11 +50,13 @@ class EditorState {
     int cursorFileY;
     int cursorFileX;
     std::string filename;
-    std::vector<textRow> textRows;
+    std::vector<TextRow> textRows;
 
     bool dirty;
     // the current mode is now part of the editor's state
     EditorMode currentMode;
+
+    struct SearchHistory searchHistory;
 
 public:
     EditorState();
@@ -52,10 +70,13 @@ public:
     int getCursorFileY();
     int getCursorFileX();
     int getTextWindowHeight();   // This is after considering that the last row is reserved for status bar
-    std::vector<textRow> getTextRows();
-    textRow& getTextRow(int idx);
+    std::vector<TextRow> getTextRows();
+    TextRow& getTextRow(int idx);
     std::string getFileName();
- EditorMode getMode() const; // get cur mode
+    EditorMode getMode() const; // get cur mode
+
+    std::string& getCurrentPattern();
+    SearchHistory& getSearchHistory();
 
     // public getter for dirty flag
     bool isDirty() const;
@@ -77,10 +98,23 @@ public:
     void removeRow(int pos);
     void editorInsertChar(char ch, int r, int c);
 
+    void updateSearchPattern(std::string str);
+    void updateSearchDirection(bool isForward);
+    void updateSearchHistory(SearchHistory);
+
+    void searchPattern();
+
+    void displayStatusBar(StatusBar& S);
+    void updateStatusBarCoordinates(StatusBar& S,int row,int col);
+
     // add this functions to Manages the dirty flag state
     void markAsDirty();// to set the dirty flag to true
     void onFileLoad();// resets the dirty flag when a file is loaded
-    void onFileSave();// resets the dirty flag after a file is saveed
+    void onFileSave();// resets the dirty flag after a file is saved
+
+    void fileCoordinatesToScreenCoordinates();
+
+
 };
 
-#endif 
+#endif

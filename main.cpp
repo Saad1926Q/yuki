@@ -1,10 +1,14 @@
+#include <cctype>
+#include <cstddef>
 #include <iostream>
 #include <fstream>
 #include <ncurses.h>
+#include <string>
 #include "editor.hpp"
 
 AppendBuffer aBuf;
 EditorState E;
+StatusBar statusBar;
 
 
 void die(std::string errorMessage){  // For error handling
@@ -38,7 +42,7 @@ void appendLineToBuffer(std::string& rowContent,int colOffset=0){
 
         for (char ch : rowSubstr) {
             if (ch == '\t') {
-                for (int i = 0; i < TABSIZE; ++i)
+                for (std::size_t i = 0; i < 4; ++i)
 					bufferContent+=" ";
             } else  {
 				bufferContent+=ch;
@@ -47,12 +51,13 @@ void appendLineToBuffer(std::string& rowContent,int colOffset=0){
     }
 
 	bufferContent+="\n";
-	aBuf.append(bufferContent);	
+	aBuf.append(bufferContent);
 }
+
 
 void handleFile(char* argv[]){  // Handle the file in the beginning when you run the text editor
     std::string filename{argv[1]};
-    
+
     std::ifstream file{filename};
 
     E.setFileName(filename);
@@ -69,11 +74,11 @@ void handleFile(char* argv[]){  // Handle the file in the beginning when you run
         appendLineToBuffer(currentLine);
     }
 
-	if (E.getNumRows() == 0) 
+	if (E.getNumRows() == 0)
 	    E.appendRow("");
-	
+
 	E.onFileLoad();
-	
+
 	drawContent();
 }
 
@@ -82,7 +87,7 @@ void updateFile(){  // Save the content in the file
 
 	std::ofstream file(filename);
 
-	std::vector<textRow> textRows=E.getTextRows();
+	std::vector<TextRow> textRows=E.getTextRows();
 
 	for(std::size_t i=0;i<textRows.size();i++){
 		file<<textRows[i].text;
@@ -99,12 +104,12 @@ void refreshScreen() {
     E.getWindowSize();
 
     curs_set(0);
-    
+
     erase();
     aBuf.clear();
 
     int colOffset=E.getColOffset();
-    std::vector<textRow> textRows=E.getTextRows();
+    std::vector<TextRow> textRows=E.getTextRows();
 
     int rowOffset = E.getRowOffset();
     int terminalRows = E.getRows();
@@ -119,31 +124,29 @@ void refreshScreen() {
 
     drawContent();
 
-    attron(A_REVERSE); 
-
     EditorMode mode = E.getMode();
     std::string modeString = (mode == EditorMode::Normal) ? "=== NORMAL ===" : "=== INSERT ===";
-    std::string name = E.getFileName().substr(0, 20); 
+    std::string name = E.getFileName().substr(0, 20);
     std::string dirtystr = E.isDirty() ? " [Modified , don't forget to save]" : "";
-    
-    std::string leftStatus = modeString + " | " + name + dirtystr;
-    
+
+    std::string leftStatus;
+
+    if(mode!=EditorMode::Search)
+        leftStatus = modeString + " | " + name + dirtystr;
+    else{
+        if(E.getSearchHistory().forward)
+            leftStatus="\\";
+        else
+            leftStatus="?";
+        leftStatus+=E.getCurrentPattern();
+    }
+
     std::string rightStatus = std::to_string(E.getCursorFileY() + 1) + "/" + std::to_string(E.getNumRows());
 
-    int terminalCols = E.getCols();
-    int row_cnt = terminalRows - 1;
+    statusBar.rightText=rightStatus;
+    statusBar.leftText=leftStatus;
 
-	if (leftStatus.length() > terminalCols) {
-    leftStatus.resize(terminalCols);
-	}
-
-    mvprintw(row_cnt, 0, "%s", leftStatus.c_str());
-
-	if (leftStatus.length() + rightStatus.length() < terminalCols) {
-    	mvprintw(row_cnt, terminalCols - rightStatus.length(), "%s", rightStatus.c_str());
-	}
-	
-    attroff(A_REVERSE); 
+    E.displayStatusBar(statusBar);
 
     static EditorMode lastMode = EditorMode::Normal;
 
@@ -152,6 +155,7 @@ void refreshScreen() {
             case EditorMode::Normal: // change cursor to a steady block
                 printf("\x1b[2 q");
                 break;
+            case EditorMode::Search:
             case EditorMode::Insert: // change cursor to a blinking bar
                 printf("\x1b[5 q");
                 break;
@@ -162,7 +166,12 @@ void refreshScreen() {
 
     curs_set(1);
 
-    move(E.getCursorY(), E.getCursorX());
+    if(mode==EditorMode::Insert || mode==EditorMode::Normal)
+        move(E.getCursorY(), E.getCursorX());
+    else{
+        E.updateStatusBarCoordinates(statusBar,E.getRows()-1,1+E.getCurrentPattern().size());
+        move(statusBar.r,statusBar.c);
+    }
 
     refresh();
 }
@@ -177,9 +186,26 @@ void editorProcessKeypress() {  // Main function which handles the different key
         E.setMode(EditorMode::Insert);
         return; // move to Insert mode and wait for next input
     }
-    if (E.getMode() == EditorMode::Insert && ch == 27) { 
+
+    if (E.getMode() == EditorMode::Normal && ch == '\\') {
+        E.setMode(EditorMode::Search);
+        E.updateSearchDirection(true); //Search in forward direction
+        E.updateSearchPattern("");
+        return;
+    }
+    if (E.getMode() == EditorMode::Normal && ch == '?') {
+        E.setMode(EditorMode::Search);
+        E.updateSearchDirection(false); //Search in backward direction
+        E.updateSearchPattern("");
+        return; // move to Insert mode and wait for next input
+    }
+    if (E.getMode() == EditorMode::Insert && ch == 27) {
         E.setMode(EditorMode::Normal);
         return; // move to normal mode and wait for next input
+    }
+    if(E.getMode()== EditorMode::Search && ch==27){
+        E.setMode(EditorMode::Normal);
+        return;
     }
 
 	int rowOffset=E.getRowOffset();
@@ -198,84 +224,86 @@ void editorProcessKeypress() {  // Main function which handles the different key
 
 	if (E.getMode() == EditorMode::Normal) {
         switch (ch) {
-            case 'k': 
-				ch = KEY_UP;    
+            case 'k':
+				ch = KEY_UP;
 				break;
-            case 'j': 
-				ch = KEY_DOWN;  
+            case 'j':
+				ch = KEY_DOWN;
 				break;
-            case 'h': 
-				ch = KEY_LEFT; 
+            case 'h':
+				ch = KEY_LEFT;
 				break;
-            case 'l': 
-				ch = KEY_RIGHT; 
+            case 'l':
+				ch = KEY_RIGHT;
 				break;
 			case 'G':
 				E.setCursorFileY(E.getNumRows()-1);
 				E.setCursorFileX(0);
 				break;
-			case 'g':
+			case 'g':{
 				timeout(300);
 				int doubleClick = getch();
 				timeout(-1);
 
-				if (doubleClick == 'g') 
+				if (doubleClick == 'g')
 				{
 					E.setCursorFileY(0);
 					E.setCursorFileX(0);
 				} else if (doubleClick != ERR) {
-					ungetch(doubleClick); 
+					ungetch(doubleClick);
 				}
 				break;
+			}
+
         }
     }
 
     EditorMode mode = E.getMode();
 	switch(ch){
 		case KEY_UP:
-			if(currCursorFileY!=0){				
+			if(currCursorFileY!=0){
 				E.setCursorFileY(currCursorFileY-1); // Move one line up
 
-				textRow& newRow = E.getTextRow(currCursorFileY-1);
-				
+				TextRow& newRow = E.getTextRow(currCursorFileY-1);
+
 				if(currCursorFileX>newRow.size)
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-				
+
 			}
 			break;
 
 		case KEY_DOWN:
 			if(currCursorFileY<E.getNumRows()-1){
 				E.setCursorFileY(currCursorFileY+1); // Move one line down
-				
-				textRow& newRow = E.getTextRow(E.getCursorFileY());
-				
+
+				TextRow& newRow = E.getTextRow(E.getCursorFileY());
+
 				if(currCursorFileX>newRow.size)
 					E.setCursorFileX(newRow.size); // If the length of new line is smaller than the previous line then snap to the end of the new line
-				
+
 			}
-			
+
 			break;
 
 		case KEY_RIGHT:
 			if(currCursorFileX!=currRowSize)
 				E.setCursorFileX(currCursorFileX+1);
-			
-			
+
+
 			break;
-		
+
 		case KEY_LEFT:
 			if(currCursorFileX!=0)
 				E.setCursorFileX(currCursorFileX-1);
-			
+
 
 			break;
 
 		case KEY_HOME:
 			E.setCursorFileX(0);
-			
+
 			break;
-		
+
 		case KEY_END:
 			E.setCursorFileX(currRowSize);
 
@@ -291,7 +319,7 @@ void editorProcessKeypress() {  // Main function which handles the different key
 		case KEY_ENTER: // Keypad Enter
 			if (mode == EditorMode::Insert) {
 				if(E.getNumRows()>0){
-					textRow& currRow=E.getTextRow(currCursorFileY);
+					TextRow& currRow=E.getTextRow(currCursorFileY);
 					std::string newLineText=currRow.text.substr(currCursorFileX);  // This is the text that will become the next line
 
 					currRow.text=currRow.text.substr(0,currCursorFileX);  // Shorten the original line
@@ -303,13 +331,17 @@ void editorProcessKeypress() {  // Main function which handles the different key
 					E.setCursorFileY(currCursorFileY+1);
 
 				}
+			} else if (mode == EditorMode::Search){
+			    E.searchPattern();
+				E.fileCoordinatesToScreenCoordinates();
+				E.setMode(EditorMode::Normal);
 			}
 			break;
 
 		case KEY_BACKSPACE:
 			if (mode == EditorMode::Insert) {
 				if(E.getNumRows()>0){
-					textRow& currRow=E.getTextRow(currCursorFileY);
+					TextRow& currRow=E.getTextRow(currCursorFileY);
 
 					if(currRow.size>0 && currCursorFileX>0){
 						currRow.text.erase(currCursorFileX-1,1);  // Delete one character before the cursor
@@ -319,9 +351,9 @@ void editorProcessKeypress() {  // Main function which handles the different key
 						E.setCursorFileX(currCursorFileX - 1);
 					}else if(currCursorFileX==0 && currCursorFileY>0){ // pressing backspace at the beginning of a line
 						std::string currLineText=currRow.text;
-						
-						textRow& prevRow=E.getTextRow(currCursorFileY-1);
-						
+
+						TextRow& prevRow=E.getTextRow(currCursorFileY-1);
+
 						int newCursorFileX=prevRow.size;
 
 						prevRow.text+=currLineText;
@@ -334,67 +366,62 @@ void editorProcessKeypress() {  // Main function which handles the different key
 					}
 
 				}
+			} else if(mode==EditorMode::Search){
+			    const std::string& pattern=E.getCurrentPattern();
+				int n=pattern.size();
+
+				if(n>0){
+				    E.updateSearchPattern(pattern.substr(0,n-1));
+				}
+
 			}
 			break;
+		case 9:{
+		    if(mode==EditorMode::Insert){
+    		    char ch='\t';
+    			E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
+    			E.setCursorFileX(E.getCursorFileX()+1);
+			}else if(mode==EditorMode::Search){
+                std::string currPattern=E.getCurrentPattern();
+                for(std::size_t i=0;i<4;i++){
+                    currPattern+=' ';
+                }
+                E.updateSearchPattern(currPattern);
+			}
+		}
 
 		case ('s' & 0x1F): // This is CTRL+S
 			updateFile();
 			break;
 
 		default:
-			if(isprint(ch) && mode == EditorMode::Insert){ 	// Text insertion 
+			if(isprint(ch) && mode == EditorMode::Insert){ 	// Text insertion
 				E.editorInsertChar(ch,E.getCursorFileY(),E.getCursorFileX());
 				E.setCursorFileX(E.getCursorFileX()+1);
 
 			}
+
+			if(isprint(ch) && mode==EditorMode::Search){
+			    std::string currPattern=E.getCurrentPattern();
+				currPattern+=ch;
+			    E.updateSearchPattern(currPattern);
+			}
 			break;
 	}
 
-	currCursorFileY = E.getCursorFileY();
-    currCursorFileX = E.getCursorFileX();
-
-	if(currCursorFileY<E.getRowOffset()){
-		E.setRowOffset(currCursorFileY);
+	if(mode==EditorMode::Insert || mode == EditorMode::Normal){
+	    E.fileCoordinatesToScreenCoordinates();
 	}
-	
-	int textWindowHeight = E.getTextWindowHeight();
-
-	if(currCursorFileY>=E.getRowOffset()+textWindowHeight){
-		E.setRowOffset(currCursorFileY-textWindowHeight+1);
-	}
-
-	if(currCursorFileX < E.getColOffset()){
-		E.setColOffset(currCursorFileX);
-	}
-	
-	if(currCursorFileX>=E.getColOffset()+terminalCols){
-		E.setColOffset(currCursorFileX-terminalCols+1);
-	}
-
-
-
-	rowOffset = E.getRowOffset();  // Get the offset which might have been updated
-	colOffset = E.getColOffset(); // Get the offset which might have been updated
-
-	int r = E.getCursorFileY() - rowOffset;
-	int c = E.getCursorFileX() - colOffset;
-
-	if (r >= E.getTextWindowHeight()) {
-    	r = E.getTextWindowHeight() - 1;
-	}
-
-	E.setCursorY(r);
-	E.setCursorX(c);
 }
 
 
 int main(int argc, char* argv[])
-{	
+{
 	initscr();
 	raw();
 	noecho();
 	keypad(stdscr, TRUE);
-	clear(); 
+	clear();
 
 	initEditor();
 
@@ -413,10 +440,7 @@ int main(int argc, char* argv[])
 		editorProcessKeypress();
 		refreshScreen();
 	}
-    
+
     return 0;
 
 }
-
-
-
