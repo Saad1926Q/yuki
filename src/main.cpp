@@ -5,22 +5,18 @@
 #include <ncurses.h>
 #include <string>
 #include "editor.hpp"
+#include "error.hpp"
 
 AppendBuffer aBuf;
 EditorState E;
 StatusBar statusBar;
 
 
-void die(std::string errorMessage){  // For error handling
-	endwin();
-	std::cerr<<errorMessage<<std::endl;
-	std::exit(EXIT_FAILURE);
-}
-
-
 void initEditor(){
-	if(E.getWindowSize()==-1)
+	if(E.getWindowSize()==-1){
+		endwin();
 		die("getWindowSize");
+	}
 }
 
 
@@ -431,6 +427,7 @@ int main(int argc, char* argv[])
 	if(argc>=2){
 		handleFile(argv);
 	}else{
+		endwin();
 		die("Error: No filename provided.\n");
 	}
 

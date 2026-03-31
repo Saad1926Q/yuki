@@ -34,7 +34,7 @@ The initial goal is to implement a robust, minimal text editor.
 Make sure you have `g++` and the `ncurses` library installed.
 
 ```bash
-g++ main.cpp editor.cpp libs/chai/search.cpp -o yuki -lncurses
+g++ src/main.cpp src/editor.cpp libs/chai/search.cpp -o yuki -lncurses
 ```
 
 **For contributors:** Make sure to add the [chai](https://github.com/Saad1926Q/chai) library as a submodule.

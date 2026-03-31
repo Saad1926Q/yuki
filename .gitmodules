@@ -1,3 +1,6 @@
 [submodule "libs/chai"]
 	path = libs/chai
 	url = git@github.com:Saad1926Q/chai.git
+[submodule "libs/utf8proc"]
+	path = libs/utf8proc
+	url = https://github.com/JuliaStrings/utf8proc

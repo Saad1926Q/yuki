@@ -1,0 +1,153 @@
+utf8.txt                                                            yuki
+
+
+                              YUKI DOCS
+
+
+UTF-8 and Text Encoding                                         *utf8*
+
+==============================================================================
+Overview                                                    *utf8-overview*
+
+Yuki stores text as raw UTF-8 bytes and reasons about it at two levels:
+
+Bytes: the raw memory representation. A single Unicode codepoint is 1-4
+bytes wide in UTF-8. Multiple codepoints may combine into one visible unit.
+
+Grapheme clusters: what the user sees and interacts with. One grapheme
+cluster is one "character" on screen. Cursor movement, deletion, and
+selection all operate on grapheme clusters, not bytes or codepoints.
+
+The two must never be conflated. A naive byte or codepoint count will give
+wrong results for any text beyond ASCII.
+
+==============================================================================
+Position Types                                              *utf8-positions*
+
+Two position types are used throughout the codebase:
+
+    BytePos     byte offset into raw buffer memory
+    CharPos     grapheme cluster index (what the user perceives)
+
+These are never used alone for logical editor positions. Every logical
+position is a Pos:
+
+    struct Pos {
+        BytePos byte;   // raw byte offset in buffer memory
+        CharPos chr;    // grapheme cluster index
+    };
+
+Both fields are always kept in sync. A function that updates .byte must
+update .chr in the same statement, and vice versa. Never convert between
+the two on the fly -- carry both at all times.
+
+==============================================================================
+UTF-8 Encoding                                              *utf8-encoding*
+
+Every codepoint is 1-4 bytes. The leading byte encodes the count.
+Continuation bytes (10xxxxxx) carry payload only and are never a valid
+sequence start.
+
+Leading byte patterns:
+
+    0xxxxxxx    1 byte   (ASCII, 0x00-0x7F)
+    110xxxxx    2 bytes  (0xC0-0xDF)
+    1110xxxx    3 bytes  (0xE0-0xEF)
+    11110xxx    4 bytes  (0xF0-0xF7)
+    10xxxxxx    continuation byte
+
+Two lookup tables in src/utf8.hpp map any leading byte to its sequence
+length in O(1):
+
+lookupLenient: continuation bytes and invalid leads return 1, not 0.
+Use during traversal -- corrupt data must not get us stuck.
+
+lookupStrict: continuation bytes and invalid leads return 0.
+Use during validation before inserting.
+
+==============================================================================
+Three Layers                                                *utf8-layers*
+
+The implementation is split into three layers. Each layer only knows about
+the one below it. The gap buffer never appears in layers 0 or 1.
+
+LAYER 0 -- byte arithmetic                                  *utf8-layer0*
+
+Input is a single uint8_t value. Pure functions, no buffer, no state.
+
+    seqLen(b)               sequence length from leading byte (lenient)
+    isContinuationByte(b)   tests the 10xxxxxx pattern
+
+LAYER 1 -- codepoint and grapheme navigation                *utf8-layer1*
+
+Input is (uint8_t* buf, BytePos pos) plus a bound parameter.
+Operates on a contiguous byte range with no gap knowledge.
+
+Codepoint level:
+
+    nextCodepointByte(buf, pos)         advance one codepoint
+    prevCodepointByte(buf, pos)         retreat one codepoint
+    decodeCp(buf, pos, bufLen)          decode codepoint to uint32_t
+    isValidSeq(buf, pos, bufLen)        validate a UTF-8 sequence
+
+Grapheme cluster level:
+
+    nextGraphemeByte(buf, pos, limit)   advance one cluster, stops at limit
+    prevGraphemeByte(buf, pos, lower)   retreat one cluster, stops at lower
+    isComposing(prevCp, cp, state)      tests if cp joins prevCp's cluster
+    isComposingFirst(cp)                tests if cp composes with no prior char
+
+limit is exclusive -- the first byte that cannot be read.
+lower is inclusive -- the first byte that can be read.
+
+LAYER 2 -- gap-aware traversal                              *utf8-layer2*
+
+Lives in the gap buffer class. The only layer that knows the gap exists.
+
+    advance(Pos p)      move forward one grapheme cluster
+    retreat(Pos p)      move backward one grapheme cluster
+
+advance and retreat are the entire gap-aware interface. Everything else
+(shiftGap, insert, deleteChar, charToByte) calls these and never touches
+layers 0 or 1 directly.
+
+==============================================================================
+Grapheme Cluster Navigation                                 *utf8-grapheme*
+
+Going forward ~
+
+nextGraphemeByte uses utf8proc_grapheme_break_stateful, which carries a
+GraphemeState (int32_t) across codepoints in one cluster. This state is
+initialized to 0 at each new cluster boundary and accumulates context as
+codepoints are consumed left to right. The scan stops when a break is
+found or the limit is reached.
+
+Going backward ~
+
+The stateful algorithm cannot run in reverse -- state requires a
+left-to-right pass from the cluster start. prevGraphemeByte handles this
+in two phases, inspired by utf_head_off() in Neovim's mbyte.c:
+
+1. Backward pass: uses cheap stateless boundclass checks (alwaysBreakTwo)
+   to find a position guaranteed to be at or before the real cluster start.
+   May overshoot leftward -- false negatives are intentional. When the check
+   is uncertain it keeps going back rather than stopping too early, giving
+   the forward pass a safe starting point.
+
+2. Forward pass: from that position, runs nextGraphemeByte cluster by
+   cluster until the boundary lands exactly at pos. Because nextGraphemeByte
+   carries full stateful support, this correctly handles ZWJ emoji sequences,
+   flag pairs, and Indic conjuncts that a pure backward pass would get wrong.
+
+==============================================================================
+Gap Boundary Invariant                                      *utf8-invariant*
+
+gapStart.byte and gapEnd.byte are always on grapheme cluster boundaries.
+No cluster ever straddles the gap.
+
+This is what makes the limit/lower parameters work cleanly:
+- nextGraphemeByte stopping at gapStart always stops at end-of-cluster.
+- prevGraphemeByte stopping at gapEnd always stops at start-of-cluster.
+
+The invariant is maintained by shiftGap, which only accepts a Pos produced
+by advance or retreat -- both of which always land on cluster boundaries.

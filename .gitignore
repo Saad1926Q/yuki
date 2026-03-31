@@ -2,3 +2,5 @@ yuki
 .vscode
 sample.txt
 test.txt
+build/
+test_*
