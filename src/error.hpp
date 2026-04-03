@@ -5,7 +5,7 @@
 #include <string_view>
 #include <cstdlib>
 
-inline void die(std::string_view msg){
+[[noreturn]] inline void die(std::string_view msg){
     std::cerr << msg << "\n";
     std::exit(EXIT_FAILURE);
 }

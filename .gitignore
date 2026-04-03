@@ -3,4 +3,4 @@ yuki
 sample.txt
 test.txt
 build/
-test_*
+/test_*

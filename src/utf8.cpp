@@ -256,9 +256,11 @@ BytePos prevGraphemeByte(uint8_t* buf, BytePos pos, BytePos lower){
         if(prev<lower)
             break;
 
-        // ASCII to the left means curr is definitely a cluster start.
-        if(buf[prev]<0x80)
+        // ASCII to the left is a guaranteed cluster boundary - step onto it.
+        if(buf[prev]<0x80){
+            curr=prev;
             break;
+        }
 
         uint32_t prevCp = decodeCp(buf,prev,curr);
 
