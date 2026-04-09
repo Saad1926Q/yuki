@@ -18,8 +18,6 @@ Grapheme clusters: what the user sees and interacts with. One grapheme
 cluster is one "character" on screen. Cursor movement, deletion, and
 selection all operate on grapheme clusters, not bytes or codepoints.
 
-The two must never be conflated. A naive byte or codepoint count will give
-wrong results for any text beyond ASCII.
 
 ==============================================================================
 Position Types                                              *utf8-positions*
@@ -38,8 +36,7 @@ position is a Pos:
     };
 
 Both fields are always kept in sync. A function that updates .byte must
-update .chr in the same statement, and vice versa. Never convert between
-the two on the fly -- carry both at all times.
+update .chr in the same statement, and vice versa.
 
 ==============================================================================
 UTF-8 Encoding                                              *utf8-encoding*
@@ -68,20 +65,27 @@ Use during validation before inserting.
 ==============================================================================
 Three Layers                                                *utf8-layers*
 
-The implementation is split into three layers. Each layer only knows about
-the one below it. The gap buffer never appears in layers 0 or 1.
+While implementing the UTF-8 stuff, one thing that required quite a bit of
+thought was: which parts should be aware of the gap, and which parts should
+be completely unaware of it? The gap is a buffer implementation detail --
+UTF-8 parsing has nothing to do with it, so mixing them together would make
+both harder to test and reason about.
+
+The decision was three layers, where each layer only knows about the one
+below it. The gap buffer never appears in layers 0 or 1.
 
 LAYER 0 -- byte arithmetic                                  *utf8-layer0*
 
-Input is a single uint8_t value. Pure functions, no buffer, no state.
+The bottom layer. Takes a single uint8_t value -- not a pointer, not a
+position. Just a byte. Pure functions, no state, no buffer.
 
     seqLen(b)               sequence length from leading byte (lenient)
     isContinuationByte(b)   tests the 10xxxxxx pattern
 
 LAYER 1 -- codepoint and grapheme navigation                *utf8-layer1*
 
-Input is (uint8_t* buf, BytePos pos) plus a bound parameter.
-Operates on a contiguous byte range with no gap knowledge.
+Takes (uint8_t* buf, BytePos pos) plus a bound. Operates on a flat
+contiguous byte range. Has zero knowledge that a gap exists.
 
 Codepoint level:
 
@@ -102,14 +106,16 @@ lower is inclusive -- the first byte that can be read.
 
 LAYER 2 -- gap-aware traversal                              *utf8-layer2*
 
-Lives in the gap buffer class. The only layer that knows the gap exists.
+Lives inside the gap buffer class and is the only layer that knows the gap
+exists. Everything it does is call into layer 1 with the right limit for
+whichever segment the position is in, then jump over the gap when a segment
+boundary is hit.
 
     advance(Pos p)      move forward one grapheme cluster
     retreat(Pos p)      move backward one grapheme cluster
 
-advance and retreat are the entire gap-aware interface. Everything else
-(shiftGap, insert, deleteChar, charToByte) calls these and never touches
-layers 0 or 1 directly.
+Everything else -- shiftGap, insert, deleteChar, charToByte -- goes through
+advance/retreat and never touches layers 0 or 1 directly.
 
 ==============================================================================
 Grapheme Cluster Navigation                                 *utf8-grapheme*
@@ -140,7 +146,7 @@ in two phases, inspired by utf_head_off() in Neovim's mbyte.c:
    flag pairs, and Indic conjuncts that a pure backward pass would get wrong.
 
 ==============================================================================
-Gap Boundary Invariant                                      *utf8-invariant*
+Gap Boundary                                                *utf8-gap-boundary*
 
 gapStart.byte and gapEnd.byte are always on grapheme cluster boundaries.
 No cluster ever straddles the gap.

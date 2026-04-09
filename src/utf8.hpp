@@ -1,5 +1,4 @@
-#ifndef UTF8_HPP
-#define UTF8_HPP
+#pragma once
 
 // yuki works with UTF-8 encoded text and thinks about content at two levels:
 //
@@ -107,5 +106,3 @@ bool isComposingFirst(uint32_t cp);
 BytePos nextGraphemeByte(uint8_t* buf, BytePos pos, BytePos limit);
 
 BytePos prevGraphemeByte(uint8_t* buf, BytePos pos, BytePos lower);
-
-#endif

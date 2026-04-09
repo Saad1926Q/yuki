@@ -1,0 +1,154 @@
+gap_buffer.txt                                                      yuki
+
+
+                              YUKI DOCS
+
+
+Gap Buffer                                                      *gap-buffer*
+
+==============================================================================
+Overview                                                *gap-buffer-overview*
+
+In yuki, the contents of an open file are stored in a data structure called
+a gap buffer. This is the same data structure used by Emacs, and the design
+here borrows several ideas directly from Emacs' buffer implementation.
+
+There are other data structures used by text editors for the same purpose
+that we considered but did not use: rope, piece table.
+
+==============================================================================
+How a Gap Buffer Works                              *gap-buffer-how-it-works*
+
+A gap buffer is a flat array of bytes with a gap sitting at the current
+cursor position. The text before the cursor is segment A, the text after
+is segment B. The gap sits between them.
+
+    [ A A A A _ _ _ _ B B B B B ]
+      segment A  gap   segment B
+
+When you type a character, it is written into the left edge of the gap and
+the gap shrinks by one byte from the left. No bytes are moved.
+
+    [ A A A A X _ _ _ B B B B B ]   inserted 'X', gap shrank by 1
+
+When you move the cursor, the gap slides to the new position.
+
+    [ A A A A A B _ _ _ B B B B ]   cursor moved right by 1
+
+Deletion simply widens the gap in the appropriate direction -- no bytes are
+moved at all. Forward delete widens the gap to the right, backspace widens
+it to the left.
+
+
+==============================================================================
+The Pos Struct                                              *gap-buffer-pos*
+
+Every logical position in the editor is represented as a Pos:
+
+    struct Pos {
+        CharPos chr;    // grapheme cluster index (what the user sees)
+        BytePos byte;   // raw byte offset into buffer memory
+    };
+
+Both fields are always kept in sync.
+
+==============================================================================
+Fields                                                  *gap-buffer-fields*
+
+    buffer          std::vector<uint8_t>
+                    The raw byte storage. Contains segment A, the gap, and
+                    segment B laid out contiguously. Gap bytes are never
+                    read -- they hold whatever was there before the gap
+                    was placed.
+
+    gapStart        Pos
+                    The byte offset and cluster index of the gap's left
+                    edge. This is where the next inserted character will
+                    land. gapStart.byte + gapSize gives gapEnd -- the
+                    first byte of segment B.
+
+    gapSize         std::size_t
+                    The gap length in bytes. gapEnd is never stored --
+                    always derived as gapStart.byte + gapSize. When bytes
+                    are inserted, gapSize shrinks. When characters are
+                    deleted, gapSize grows. shiftGap never changes gapSize
+                    -- the gap slides without changing size.
+
+    textEnd         Pos
+                    One past the end of all real text, not counting the gap
+                    bytes. textEnd.byte == buffer.size() - gapSize always.
+                    textEnd.chr is the total grapheme cluster count.
+
+Two constants control gap sizing:
+
+    GAP_BYTES_MIN   20      initial gap size on construction
+    GAP_BYTES_DFL   2000    padding added on every grow
+
+==============================================================================
+Methods                                                 *gap-buffer-methods*
+
+advance(p) / retreat(p)                         *gap-buffer-advance-retreat*
+
+    Move forward or backward by exactly one grapheme cluster. These are
+    the only two functions in the entire codebase that know the gap exists
+    at the UTF-8 level. They pass the right limit to nextGraphemeByte /
+    prevGraphemeByte to keep the scan within one segment, then jump p.byte
+    over the gap when a segment boundary is hit. Both fields of Pos are
+    updated in one step.
+
+shiftGap(target)                                    *gap-buffer-shiftgap*
+
+    Slide the gap so its left edge sits at target. Direction is inferred
+    from whether target is to the right or left of gapStart. Implemented
+    as a single memmove in either direction. gapSize is unchanged -- the
+    gap moves, it does not grow or shrink here.
+
+expand(nbytesNeeded)                                  *gap-buffer-expand*
+
+    Grow the gap when it is too small for an incoming insertion. Rebuilds
+    the buffer in a new allocation with a larger gap at the same position,
+    then swaps it in. The growth formula mirrors Emacs insdel.c:
+
+        new_gap = max(nbytesNeeded, textEnd.byte / 64) + GAP_BYTES_DFL
+
+    The /64 term makes the gap proportional to the buffer size, so the
+    total number of grows stays O(log N) and total memmove work stays O(N)
+    even when inserting many small pieces into a large buffer.
+
+insert(cursor, cpBytes, cpLen)                        *gap-buffer-insert*
+
+    Insert one UTF-8 encoded codepoint at cursor. Validates the position,
+    slides the gap to cursor, grows the gap if needed, then copies the
+    bytes in. After the copy, checks whether the new codepoint is a
+    composing character (e.g. a combining accent after 'e'). If it is,
+    the byte count grows but the cluster count does not -- the user sees
+    no new character.
+
+deleteChar(cursor, forward)                      *gap-buffer-deletechar*
+
+    Delete one grapheme cluster by widening the gap. No bytes are moved.
+    forward=true (delete key) widens the gap to the right, consuming the
+    cluster that starts at gapEnd. forward=false (backspace) widens the
+    gap to the left, consuming the cluster that ends at gapStart.
+
+charToByte(n) / byteToChar(n)               *gap-buffer-chartobyte-bytetochar*
+
+    charToByte(n) returns the byte offset of the nth grapheme cluster.
+    byteToChar(n) returns the grapheme cluster index at a given byte offset.
+
+==============================================================================
+Validation                                          *gap-buffer-validation*
+
+Correctness is enforced at two levels:
+
+    validatePos(p)      called at the top of insert and deleteChar before
+                        anything else. Throws if the position is inside the
+                        gap, beyond textEnd, or not on a cluster boundary.
+                        Nothing below it ever sees an invalid position.
+
+    advance / retreat   the cursor is only ever updated through these two
+                        functions, which always produce positions on cluster
+                        boundaries by construction.
+
+shiftGap itself does no validation -- by the time it runs, the position
+has already been checked above it.

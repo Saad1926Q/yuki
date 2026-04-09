@@ -1,5 +1,4 @@
-#ifndef TYPES_HPP
-#define TYPES_HPP
+#pragma once
 
 #include <cstddef>
 
@@ -8,5 +7,3 @@ using BytePos = std::size_t;
 
 // Position as the user perceives it, counted in grapheme clusters.
 using CharPos = std::size_t;
-
-#endif

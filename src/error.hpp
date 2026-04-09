@@ -1,5 +1,4 @@
-#ifndef ERROR_HPP
-#define ERROR_HPP
+#pragma once
 
 #include <iostream>
 #include <string_view>
@@ -9,5 +8,3 @@
     std::cerr << msg << "\n";
     std::exit(EXIT_FAILURE);
 }
-
-#endif
